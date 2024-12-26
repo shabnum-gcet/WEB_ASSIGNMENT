@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shabnum Memory Game</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      margin: 0;
+    }
+
+    header {
+      background: linear-gradient(90deg, #4facfe, #00f2fe);
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      width: 100%;
+      font-size: 3rem;
+      font-weight: bold;
+      text-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+      border-bottom: 5px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .controls {
+      margin: 20px 0;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .controls select,
+    .controls button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #0072ff, #00c6ff);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .controls select:hover,
+    .controls button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.6);
+    }
+
+    .game-container {
+      display: grid;
+      gap: 10px;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 800px;
+    }
+
+    .card {
+      background: linear-gradient(145deg, #cfd9df, #e2ebf0);
+      border: none;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      height: 100px;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+      transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .card span {
+      display: none;
+      font-size: 2rem;
+      color: #333;
+      text-shadow: 0 0 10px #333, 0 0 20px #89f7fe, 0 0 30px #89f7fe;
+    }
+
+    .card.flipped {
+      background: linear-gradient(145deg, #89f7fe, #66a6ff);
+      transform: rotateY(180deg);
+    }
+
+    .card.flipped span {
+      display: block;
+    }
+
+    .info {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: #fff;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #ffffff;
+      color: #333;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border-radius: 15px;
+      z-index: 1000;
+      text-align: center;
+    }
+
+    .modal.active {
+      display: block;
+    }
+
+    .modal h2 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    .modal button {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #0072ff, #00c6ff);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>Shabnum Memory Game</header>
+  <div class="controls">
+    <select id="level">
+      <option value="4">Easy (4x4)</option>
+      <option value="6">Medium (6x6)</option>
+      <option value="8">Hard (8x8)</option>
+    </select>
+    <button id="restart">Restart</button>
+  </div>
+  <div class="game-container"></div>
+  <div class="info">
+    Moves: <span id="moves">0</span> | Timer: <span id="timer">0</span>s
+  </div>
+
+  <div class="modal" id="winModal">
+    <h2>Congratulations! 🎉</h2>
+    <p>You completed the game in <span id="finalMoves"></span> moves and <span id="finalTime"></span> seconds.</p>
+    <button onclick="restartGame()">Play Again</button>
+  </div>
+
+  <script>
+    const gameContainer = document.querySelector('.game-container');
+    const movesElement = document.getElementById('moves');
+    const timerElement = document.getElementById('timer');
+    const restartButton = document.getElementById('restart');
+    const levelSelect = document.getElementById('level');
+    const winModal = document.getElementById('winModal');
+    const finalMoves = document.getElementById('finalMoves');
+    const finalTime = document.getElementById('finalTime');
+
+    let firstCard = null;
+    let secondCard = null;
+    let moves = 0;
+    let timer = 0;
+    let interval;
+
+    const icons = ['💧', '🌸', '🌿', '☀️', '🌙', '🌈', '🔥', '❄️', '⚡', '🍃', '🌟', '🦋', '🌼', '🌵', '🍂', '🌹'];
+
+    function shuffleArray(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function createCards(level) {
+      const gridSize = level;
+      const totalCards = gridSize * gridSize;
+      let cardIcons = [...icons.slice(0, totalCards / 2)];
+      cardIcons = shuffleArray([...cardIcons, ...cardIcons]);
+
+      gameContainer.innerHTML = '';
+      gameContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+
+      cardIcons.forEach((icon) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.icon = icon;
+        card.innerHTML = `<span>${icon}</span>`;
+        gameContainer.appendChild(card);
+
+        card.addEventListener('click', () => flipCard(card));
+      });
+    }
+
+    function flipCard(card) {
+      if (card.classList.contains('flipped') || secondCard) return;
+
+      card.classList.add('flipped');
+
+      if (!firstCard) {
+        firstCard = card;
+      } else {
+        secondCard = card;
+        moves++;
+        movesElement.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      if (firstCard.dataset.icon === secondCard.dataset.icon) {
+        resetSelection();
+        checkWin();
+      } else {
+        setTimeout(() => {
+          firstCard.classList.remove('flipped');
+          secondCard.classList.remove('flipped');
+          resetSelection();
+        }, 1000);
+      }
+    }
+
+    function resetSelection() {
+      firstCard = null;
+      secondCard = null;
+    }
+
+    function checkWin() {
+      const allFlipped = document.querySelectorAll('.card.flipped').length;
+      const totalCards = gameContainer.children.length;
+
+      if (allFlipped === totalCards) {
+        clearInterval(interval);
+        finalMoves.textContent = moves;
+        finalTime.textContent = timer;
+        winModal.classList.add('active');
+      }
+    }
+
+    function restartGame() {
+      moves = 0;
+      timer = 0;
+      movesElement.textContent = moves;
+      timerElement.textContent = timer;
+      firstCard = null;
+      secondCard = null;
+      winModal.classList.remove('active');
+      clearInterval(interval);
+      interval = setInterval(() => {
+        timer++;
+        timerElement.textContent = timer;
+      }, 1000);
+      createCards(levelSelect.value);
+    }
+
+    restartButton.addEventListener('click', restartGame);
+    levelSelect.addEventListener('change', restartGame);
+
+    restartGame();
+  </script>
+</body>
+</html>
